@@ -1,0 +1,24 @@
+{
+  "node" : true,
+  "esnext": true,
+  "browser" : true,
+  "devel" : true,
+
+  "eqeqeq" : true,
+  "freeze" : true,
+  "immed" : true,
+  "indent" : 2,
+  "latedef" : "nofunc",
+  "nonbsp" : true,
+  "quotmark" : true,
+  "undef" : true,
+  "unused" : true,
+
+  "maxcomplexity": 6,
+  "maxdepth": 2,
+  "laxbreak" : true,
+  "laxcomma" : true,
+
+   "predef": [ "-Promise" ]
+
+}
