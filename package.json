@@ -1,18 +1,16 @@
 {
-  "name": "vs-force",
-  "version": "0.1.0",
-  "description": "Vivint Solar proprietary code for connecting to SalesForce",
-  "main": "index.js",
+  "name": "pool-party",
+  "version": "0.1.1",
+  "description": "Utility for managing connections SalesForce, with BIG plans to be not-that.",
+  "main": "es5/index.js",
   "scripts": {
     "test": "npm test"
   },
   "author": "Seth Tippetts <sethtippetts@gmail.com> (http://sethtippetts.com)",
   "license": "ISC",
   "dependencies": {
-    "babel": "^5.1.13",
     "bluebird": "^2.9.25",
-    "jsforce": "^1.4.1",
-    "moment": "^2.10.2"
+    "jsforce": "^1.4.1"
   },
   "devDependencies": {}
 }

@@ -4,7 +4,8 @@
 
 ### Create Instance
 
-```var PoolParty = require('vs-force/es5');
+```
+var PoolParty = require('vs-force/es5');
 
 var db = new PoolParty({
   Username:        <Username>,
@@ -14,26 +15,31 @@ var db = new PoolParty({
   TargetSystem:    <TargetSystem>,
   SecurityToken:   <SecurityToken>,
   IntegrationName: <IntegrationName>
-});```
+});
+```
 
 ### Manipulate data
 
 > Returns a promise with the transaction results
 
-```function updateAccount(account){
+```
+function updateAccount(account){
   return db.sobject('Account__c')
     .then(function(sobject) {
       return sobject.update(account);
     });
-}```
+}
+```
 
 ### Query data
 
 > Returns a promise with the query results
 
-```function query(soql){
+```
+function query(soql){
   return db.query(soql);
-}```
+}
+```
 
 ## Arm Floaties
 
