@@ -1,5 +1,5 @@
 # Pool Party
-
+<img src="http://www.meridianumc.com/wp-content/uploads/2014/06/pool-party.jpg" height="400" />
 ## Basic Usage
 
 ### Create Instance
