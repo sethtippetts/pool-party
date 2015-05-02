@@ -11,16 +11,40 @@ module.exports = class PoolParty {
     }
     this.connectionCount = 0;
     this.config = _.extend({
-      min: 1,
-      max: 2,
+      min: 0,
+      max: 8,
       timeout: oneHourMillis,
       validate: function(){return true;}
     }, config);
+
+    this.config.decorate.forEach((method) => {
+      this[method] = (arg) => {
+        return this.decorate.call(this, method, arg);
+      };
+    });
 
     this.highWater = 0;
     this.pool = [];
     this.queue = [];
     setInterval(() => console.log('Connections: %d, Pool: %d, Queue: %d, Highwater: %d', this.connectionCount, this.pool.length, this.queue.length, this.highWater), 10000);
+  }
+
+  decorate(fnName, args){
+    var connection = this.acquire();
+    return Promise.using(connection.disposer(() => {
+        this.release(connection);
+      }), function(conn){
+        return conn[fnName](args);
+    });
+  }
+
+  connect(fn){
+    var connection = this.acquire();
+    return Promise.using(connection.disposer(() => {
+        this.release(connection);
+      }), function(conn){
+        return fn.bind(conn, conn);
+    });
   }
 
   /**
@@ -51,7 +75,7 @@ module.exports = class PoolParty {
     return this.acquire();
   }
 
-  drain(count=1){
+  drain(){
 
     // Check if less that 75% of connections in use
     var isLowTide = this.connectionCount - this.pool.length  < this.connectionCount * 0.75;
@@ -100,7 +124,7 @@ module.exports = class PoolParty {
   destroy(conn){
     --this.connectionCount;
     // --this.highWater;
-    return this.config.destroy(conn).catch(function(){})
+    return this.config.destroy(conn).catch(function(){});
   }
 
   isValid(conn){
@@ -113,25 +137,5 @@ module.exports = class PoolParty {
 
     // Connection still valid, don't renew
     return this.config.validate(conn);
-  }
-
-  /**
-   * PoolParty.query
-   * @param  {SOQL Query} arg
-   * @return {Promise}
-   */
-  query(arg) {
-    return this._wrap('query', arg);
-  }
-  sobject(arg) {
-    return this._wrap('sobject', arg);
-  }
-  _wrap(fnName, arg) {
-    var connection = this.acquire();
-    return Promise.using(connection.disposer(() => {
-        this.release(connection);
-      }), function(conn){
-        return conn[fnName](arg);
-      });
   }
 };

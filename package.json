@@ -1,7 +1,7 @@
 {
   "name": "pool-party",
   "version": "0.2.0",
-  "description": "Utility for managing connections SalesForce, with BIG plans to be not-that.",
+  "description": "Utility for the cool kids to handle pooled resources.",
   "main": "es5/index.js",
   "scripts": {
     "test": "npm test"

@@ -20,13 +20,19 @@ module.exports = (function () {
     }
     this.connectionCount = 0;
     this.config = _.extend({
-      min: 1,
-      max: 2,
+      min: 0,
+      max: 8,
       timeout: oneHourMillis,
       validate: function validate() {
         return true;
       }
     }, config);
+
+    this.config.decorate.forEach(function (method) {
+      _this[method] = function (arg) {
+        return _this.decorate.call(_this, method, arg);
+      };
+    });
 
     this.highWater = 0;
     this.pool = [];
@@ -37,6 +43,30 @@ module.exports = (function () {
   }
 
   _createClass(PoolParty, [{
+    key: 'decorate',
+    value: function decorate(fnName, args) {
+      var _this2 = this;
+
+      var connection = this.acquire();
+      return Promise.using(connection.disposer(function () {
+        _this2.release(connection);
+      }), function (conn) {
+        return conn[fnName](args);
+      });
+    }
+  }, {
+    key: 'connect',
+    value: function connect(fn) {
+      var _this3 = this;
+
+      var connection = this.acquire();
+      return Promise.using(connection.disposer(function () {
+        _this3.release(connection);
+      }), function (conn) {
+        return fn.bind(conn, conn);
+      });
+    }
+  }, {
     key: 'acquire',
 
     /**
@@ -69,9 +99,7 @@ module.exports = (function () {
   }, {
     key: 'drain',
     value: function drain() {
-      var _this2 = this;
-
-      var count = arguments[0] === undefined ? 1 : arguments[0];
+      var _this4 = this;
 
       // Check if less that 75% of connections in use
       var isLowTide = this.connectionCount - this.pool.length < this.connectionCount * 0.75;
@@ -80,7 +108,7 @@ module.exports = (function () {
 
         // Destroy connection
         this.pool.pop().then(function (conn) {
-          return _this2.destroy(conn);
+          return _this4.destroy(conn);
         });
       }
       return isLowTide;
@@ -103,10 +131,10 @@ module.exports = (function () {
   }, {
     key: 'enqueue',
     value: function enqueue() {
-      var _this3 = this;
+      var _this5 = this;
 
       return new Promise(function (resolve, reject) {
-        _this3.queue.push({ resolve: resolve, reject: reject });
+        _this5.queue.push({ resolve: resolve, reject: reject });
       });
     }
   }, {
@@ -140,34 +168,6 @@ module.exports = (function () {
 
       // Connection still valid, don't renew
       return this.config.validate(conn);
-    }
-  }, {
-    key: 'query',
-
-    /**
-     * PoolParty.query
-     * @param  {SOQL Query} arg
-     * @return {Promise}
-     */
-    value: function query(arg) {
-      return this._wrap('query', arg);
-    }
-  }, {
-    key: 'sobject',
-    value: function sobject(arg) {
-      return this._wrap('sobject', arg);
-    }
-  }, {
-    key: '_wrap',
-    value: function _wrap(fnName, arg) {
-      var _this4 = this;
-
-      var connection = this.acquire();
-      return Promise.using(connection.disposer(function () {
-        _this4.release(connection);
-      }), function (conn) {
-        return conn[fnName](arg);
-      });
     }
   }]);
 
