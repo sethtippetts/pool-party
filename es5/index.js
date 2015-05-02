@@ -4,30 +4,39 @@ var _classCallCheck = function (instance, Constructor) { if (!(instance instance
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
-var jsforce = require('jsforce'),
-    Promise = require('bluebird'),
+var Promise = require('bluebird'),
     _ = require('lodash');
 
 var oneHourMillis = 1000 * 60 * 60;
 
 module.exports = (function () {
-  function VSForce(config) {
-    _classCallCheck(this, VSForce);
+  function PoolParty(config) {
+    var _this = this;
 
-    if (!config || !config.Endpoint || !config.SecurityToken || !config.Password || !config.Username) {
-      throw new Error('Missing SalesForce credentials');
+    _classCallCheck(this, PoolParty);
+
+    if (typeof config.factory !== 'function') {
+      throw new Error('Pool party requires a factory. Gotta invite the cool kids!');
     }
     this.connectionCount = 0;
     this.config = _.extend({
       min: 1,
-      max: 8,
-      timeout: oneHourMillis
+      max: 2,
+      timeout: oneHourMillis,
+      validate: function validate() {
+        return true;
+      }
     }, config);
+
+    this.highWater = 0;
     this.pool = [];
     this.queue = [];
+    setInterval(function () {
+      return console.log('Connections: %d, Pool: %d, Queue: %d, Highwater: %d', _this.connectionCount, _this.pool.length, _this.queue.length, _this.highWater);
+    }, 10000);
   }
 
-  _createClass(VSForce, [{
+  _createClass(PoolParty, [{
     key: 'acquire',
 
     /**
@@ -43,7 +52,7 @@ module.exports = (function () {
         if (this.connectionCount < this.config.max) {
           return this.create();
         } // Maxed out connections, adding to queue
-        return this.queue();
+        return this.enqueue();
       }
 
       // Get first pool connection
@@ -52,91 +61,85 @@ module.exports = (function () {
       // If it's valid, use that connection
       if (this.isValid(resource)) {
         return resource;
-      } // If it's not, recurse (pool length should be shorter)
-      return this.aquire();
+      }
+
+      // If it's not, recurse (pool length should be shorter)
+      return this.acquire();
+    }
+  }, {
+    key: 'drain',
+    value: function drain() {
+      var _this2 = this;
+
+      var count = arguments[0] === undefined ? 1 : arguments[0];
+
+      // Check if less that 75% of connections in use
+      var isLowTide = this.connectionCount - this.pool.length < this.connectionCount * 0.75;
+
+      if (isLowTide) {
+
+        // Destroy connection
+        this.pool.pop().then(function (conn) {
+          return _this2.destroy(conn);
+        });
+      }
+      return isLowTide;
     }
   }, {
     key: 'create',
     value: function create() {
-      var _this = this;
 
-      console.log('Creating new connection');
-      this.conn = new jsforce.Connection({
-        loginUrl: this.config.Endpoint,
-        accessToken: this.config.SecurityToken
-      });
-
-      this.conn.query = Promise.promisify(this.conn.query, this.conn);
-      this.conn.login = Promise.promisify(this.conn.login, this.conn);
-
-      return this.conn.login(this.config.Username, this.config.Password + this.config.SecurityToken).then(function () {
-
-        for (var prop in _this.conn) {
-          console.log('PROPERTY', prop);
-        }
-        _this.conn._initializedAt = Date.now();
-        _this.connectionCount++;
-        return _this.conn;
-      }).disposer(function (conn) {
-        return _this.release(conn);
+      // Increment connection count and update highwater-mark
+      if (this.highWater < ++this.connectionCount) {
+        this.highWater = this.connectionCount;
+      }
+      return this.config.factory().then(function (resource) {
+        resource._initializedAt = Date.now();
+        return resource;
+      })['catch'](function () {
+        this.connectionCount--;
       });
     }
   }, {
-    key: 'queue',
-    value: function queue() {
+    key: 'enqueue',
+    value: function enqueue() {
+      var _this3 = this;
+
       return new Promise(function (resolve, reject) {
-        this.queue.push({ resolve: resolve, reject: reject });
+        _this3.queue.push({ resolve: resolve, reject: reject });
       });
     }
   }, {
     key: 'release',
     value: function release(conn) {
-      console.log('Releasing connection');
-
       // No waiting connections. Release to the pool.
       if (!this.queue.length) {
-        return this.pool.push(conn);
-      } // Resolve waiting promise with last connection
+        return this.drain() || this.pool.push(conn);
+      }
+
+      // Resolve waiting promise with last connection
       var promise = this.queue.shift();
       promise.resolve(conn);
     }
   }, {
     key: 'destroy',
     value: function destroy(conn) {
-      var _this2 = this;
-
-      console.log('Destroying connection');
-      return new Promise(function (resolve, reject) {
-        _this2.conn.logout(function (err) {
-          if (err) return reject(err);
-          _this2.connectionCount--;
-          resolve(true);
-        });
-      });
+      --this.connectionCount;
+      // --this.highWater;
+      return this.config.destroy(conn)['catch'](function () {});
     }
   }, {
     key: 'isValid',
     value: function isValid(conn) {
       var dur = Date.now() - conn._initializedAt;
 
-      console.log('Duration of connection: ' + calcDur + ' hours');
-
-      // Connection still valid, don't renew
       if (dur > this.config.timeout) {
         this.destroy(conn);
         return false;
       }
-      return true;
-    }
-  }, {
-    key: 'getConnection',
 
-    /**
-     * getConnection
-     * @returns {promise|*|Function|promise|promise|promise}
-     */
-    value: function getConnection() {
-      return Promise.using(this.aquire());
+      // Connection still valid, don't renew
+      return this.config.validate(conn);
     }
   }, {
     key: 'query',
@@ -157,11 +160,16 @@ module.exports = (function () {
   }, {
     key: '_wrap',
     value: function _wrap(fnName, arg) {
-      return this.getConnection().then(function (conn) {
+      var _this4 = this;
+
+      var connection = this.acquire();
+      return Promise.using(connection.disposer(function () {
+        _this4.release(connection);
+      }), function (conn) {
         return conn[fnName](arg);
       });
     }
   }]);
 
-  return VSForce;
+  return PoolParty;
 })();
