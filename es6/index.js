@@ -1,21 +1,34 @@
 var Promise = require('bluebird')
-  , _ = require('lodash');
+  , debug = require('debug')('pool-party');
 
 var oneHourMillis = 1000 * 60 * 60;
 
 module.exports = class PoolParty {
 
-  constructor(config) {
-    if(typeof config.factory !== 'function'){
+  constructor({
+      min       = 1,
+      max       = 8,
+      timeout   = oneHourMillis,
+      validate  = () => true,
+      decorate  = [],
+      factory   = null,
+      destroy   = null
+    } = {}) {
+
+    this.config = {
+      min,
+      max,
+      timeout,
+      validate,
+      decorate,
+      destroy,
+      factory
+    };
+
+    if(typeof this.config.factory !== 'function'){
       throw new Error('Pool party requires a factory. Gotta invite the cool kids!');
     }
     this.connectionCount = 0;
-    this.config = _.extend({
-      min: 0,
-      max: 8,
-      timeout: oneHourMillis,
-      validate: function(){return true;}
-    }, config);
 
     this.config.decorate.forEach((method) => {
       this[method] = (arg) => {
@@ -26,24 +39,27 @@ module.exports = class PoolParty {
     this.highWater = 0;
     this.pool = [];
     this.queue = [];
-    setInterval(() => console.log('Connections: %d, Pool: %d, Queue: %d, Highwater: %d', this.connectionCount, this.pool.length, this.queue.length, this.highWater), 10000);
+    debug('Pool party started. Max connections: %d', this.config.max);
   }
 
   decorate(fnName, args){
+    debug('Decorating connection method "%s"', fnName);
     var connection = this.acquire();
     return Promise.using(connection.disposer(() => {
         this.release(connection);
       }), function(conn){
+        debug('Connecting via decorated method "%s"', fnName);
         return conn[fnName](args);
     });
   }
 
   connect(fn){
+    debug('Connecting via #connect helper');
     var connection = this.acquire();
     return Promise.using(connection.disposer(() => {
         this.release(connection);
       }), function(conn){
-        return fn.bind(conn, conn);
+        return fn.bind(conn, conn)();
     });
   }
 
@@ -89,7 +105,7 @@ module.exports = class PoolParty {
   }
 
   create() {
-
+    debug('Creating connection. Connection count: %d', this.connectionCount+1);
     // Increment connection count and update highwater-mark
     if(this.highWater < ++this.connectionCount){
       this.highWater = this.connectionCount;
@@ -105,23 +121,28 @@ module.exports = class PoolParty {
   }
 
   enqueue(){
+    debug('Queueing connection.');
     return new Promise((resolve, reject) => {
       this.queue.push({resolve,reject});
     });
   }
 
   release(conn){
+
     // No waiting connections. Release to the pool.
     if(!this.queue.length) {
+      debug('Releasing connection.');
       return this.drain() || this.pool.push(conn);
     }
 
+    debug('Resolving queued promise.');
     // Resolve waiting promise with last connection
     var promise = this.queue.shift();
     promise.resolve(conn);
   }
 
   destroy(conn){
+    debug('Destroying connection.');
     --this.connectionCount;
     // --this.highWater;
     return this.config.destroy(conn).catch(function(){});
