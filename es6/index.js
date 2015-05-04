@@ -1,77 +1,141 @@
-var jsforce = require('jsforce')
-  , Promise = require('bluebird');
+var Promise = require('bluebird')
+  , _ = require('lodash');
 
 var oneHourMillis = 1000 * 60 * 60;
 
-module.exports = class VSForce {
+module.exports = class PoolParty {
+
   constructor(config) {
-    if(!config || !config.Endpoint || !config.SecurityToken || !config.Password || !config.Username){
-      throw new Error('Missing SalesForce credentials');
+    if(typeof config.factory !== 'function'){
+      throw new Error('Pool party requires a factory. Gotta invite the cool kids!');
     }
-    this.config = JSON.parse(JSON.stringify(config));
+    this.connectionCount = 0;
+    this.config = _.extend({
+      min: 0,
+      max: 8,
+      timeout: oneHourMillis,
+      validate: function(){return true;}
+    }, config);
+
+    this.config.decorate.forEach((method) => {
+      this[method] = (arg) => {
+        return this.decorate.call(this, method, arg);
+      };
+    });
+
+    this.highWater = 0;
     this.pool = [];
-  }
-  query(arg) {
-    return this._wrap('query', arg);
-  }
-  sobject(arg) {
-    return this._wrap('sobject', arg);
-  }
-  _wrap(fnName, arg) {
-    return this.getConnection()
-      .then((conn) => conn[fnName](arg));
+    this.queue = [];
+    setInterval(() => console.log('Connections: %d, Pool: %d, Queue: %d, Highwater: %d', this.connectionCount, this.pool.length, this.queue.length, this.highWater), 10000);
   }
 
-  /**
-   * getConnection
-   * @returns {promise|*|Function|promise|promise|promise}
-   */
-  getConnection() {
-    return this.checkConnDuration()
-      .then((renew) => {
-        if(!renew &&!this.config.newConn&&this.conn.loginUrl===this.config.Endpoint) return Promise.resolve(this.conn);
-        this.config.newConn=false;
-
-        this.conn = new jsforce.Connection({
-          loginUrl: this.config.Endpoint,
-          accessToken: this.config.SecurityToken
-        });
-
-        this.conn.query = Promise.promisify(this.conn.query, this.conn);
-        this.conn.login = Promise.promisify(this.conn.login, this.conn);
-
-        return this.conn.login(this.config.Username, this.config.Password + this.config.SecurityToken)
-          .then(() => {
-            this.conn._initializedAt = Date.now();
-            return this.conn;
-          });
-      });
-  }
-
-
-  /**
-   * checkConnDuration
-   * @param conn
-   */
-  checkConnDuration(){
-    // No connection, create one.
-    if(!this.conn) return Promise.resolve(true);
-
-    var dur = Date.now() - this.conn._initializedAt
-      , calcDur = dur/oneHourMillis;
-
-    console.log('Duration of connection: '+calcDur+' hours');
-
-    // Connection still valid, don't renew
-    if(calcDur<10) return Promise.resolve(false);
-
-    return new Promise((resolve, reject) => {
-      console.log('Logging out connection at: '+calcDur);
-      this.conn.logout((err) =>  {
-        if (err) return reject(err);
-        console.log('Session has been expired.');
-        resolve(true);
-      });
+  decorate(fnName, args){
+    var connection = this.acquire();
+    return Promise.using(connection.disposer(() => {
+        this.release(connection);
+      }), function(conn){
+        return conn[fnName](args);
     });
   }
-}
+
+  connect(fn){
+    var connection = this.acquire();
+    return Promise.using(connection.disposer(() => {
+        this.release(connection);
+      }), function(conn){
+        return fn.bind(conn, conn);
+    });
+  }
+
+  /**
+   * PoolParty.acquire
+   * @return {Disposer} [description]
+   */
+  acquire(){
+
+    // No available connections
+    if(!this.pool.length){
+
+      // Creating new connection
+      if(this.connectionCount < this.config.max) return this.create();
+
+      // Maxed out connections, adding to queue
+      return this.enqueue();
+    }
+
+    // Get first pool connection
+    var resource = this.pool.shift();
+
+    // If it's valid, use that connection
+    if(this.isValid(resource)) {
+      return resource;
+    }
+
+    // If it's not, recurse (pool length should be shorter)
+    return this.acquire();
+  }
+
+  drain(){
+
+    // Check if less that 75% of connections in use
+    var isLowTide = this.connectionCount - this.pool.length  < this.connectionCount * 0.75;
+
+    if(isLowTide){
+
+      // Destroy connection
+      this.pool.pop().then((conn) => this.destroy(conn));
+    }
+    return isLowTide;
+  }
+
+  create() {
+
+    // Increment connection count and update highwater-mark
+    if(this.highWater < ++this.connectionCount){
+      this.highWater = this.connectionCount;
+    }
+    return this.config.factory()
+      .then((resource) => {
+        resource._initializedAt = Date.now();
+        return resource;
+      })
+      .catch(function(){
+        this.connectionCount--;
+      });
+  }
+
+  enqueue(){
+    return new Promise((resolve, reject) => {
+      this.queue.push({resolve,reject});
+    });
+  }
+
+  release(conn){
+    // No waiting connections. Release to the pool.
+    if(!this.queue.length) {
+      return this.drain() || this.pool.push(conn);
+    }
+
+    // Resolve waiting promise with last connection
+    var promise = this.queue.shift();
+    promise.resolve(conn);
+  }
+
+  destroy(conn){
+    --this.connectionCount;
+    // --this.highWater;
+    return this.config.destroy(conn).catch(function(){});
+  }
+
+  isValid(conn){
+    var dur = Date.now() - conn._initializedAt;
+
+    if(dur>this.config.timeout){
+      this.destroy(conn);
+      return false;
+    }
+
+    // Connection still valid, don't renew
+    return this.config.validate(conn);
+  }
+};
