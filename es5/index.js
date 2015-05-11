@@ -7,6 +7,8 @@ var _createClass = (function () { function defineProperties(target, props) { for
 var Promise = require('bluebird'),
     debug = require('debug')('pool-party');
 
+require('babel/polyfill');
+
 module.exports = (function () {
   function PoolParty() {
     var _this = this;

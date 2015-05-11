@@ -1,6 +1,8 @@
 var Promise = require('bluebird')
   , debug = require('debug')('pool-party');
 
+require("babel/polyfill");
+
 module.exports = class PoolParty {
 
   constructor({
