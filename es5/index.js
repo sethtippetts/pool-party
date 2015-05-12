@@ -92,7 +92,8 @@ module.exports = (function () {
       return Promise.using(connection.disposer(function () {
         _this3.release(connection);
       }), function (conn) {
-        return fn.bind(conn, conn)();
+        if (fn) return fn.bind(conn, conn)();
+        return conn;
       });
     }
   }, {

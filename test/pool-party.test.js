@@ -21,6 +21,9 @@ var PoolParty = require('../es5')
   },
   decorate: ['query'],
   max: 10
+},
+resolve = function(){
+  return Promise.resolve(true);
 };
 
 describe('Pool Party', function(){
@@ -36,6 +39,12 @@ describe('Pool Party', function(){
     it('should have a connect function', function(){
       expect(poolParty.connect).to.be.a('function');
     });
+  });
+
+  describe('#connect', function(){
+    it('should be public', function(){
+      expect(poolParty.connect).to.be.a('function');
+    });
     it('should resolve with a connection', function(done){
       poolParty.connect(function(conn){
         expect(conn).to.be.a('object');
@@ -44,36 +53,21 @@ describe('Pool Party', function(){
         done();
       });
     });
-  });
-
-  describe('#connect', function(){
-    it('should be public', function(){
-      expect(poolParty.connect).to.be.a('function');
-    });
     it('should never exceed max connection limit', function(){
-      var resolve = function(){
-        return Promise.resolve(true);
-      };
-      for(var i = 0; i < poolParty.config.max*4; i++){
+      for(var i = 0; i < poolParty.config.max * 4; i++){
         poolParty.connect(resolve);
       }
       expect(poolParty.connections.size).to.equal(poolParty.config.max);
     });
     it('should queue requests over the max connection limit', function(){
-      var resolve = function(){
-        return Promise.resolve(true);
-      };
-      for(var i = 0; i < poolParty.config.max*2; i++){
+      for(var i = 0; i < poolParty.config.max * 2; i++){
         poolParty.connect(resolve);
       }
       expect(poolParty.queue.length).to.equal(poolParty.config.max);
     });
     it('should resolve queued promises', function(done){
-      var resolve = function(){
-        return Promise.resolve(true);
-      };
       var promises = [];
-      for(var i = 0; i < poolParty.config.max*2; i++){
+      for(var i = 0; i < poolParty.config.max * 2; i++){
         promises.push(poolParty.connect(resolve));
       }
       Promise.all(promises)

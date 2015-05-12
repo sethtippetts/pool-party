@@ -66,7 +66,8 @@ module.exports = class PoolParty {
     return Promise.using(connection.disposer(() => {
         this.release(connection);
       }), function(conn){
-        return fn.bind(conn, conn)();
+        if(fn) return fn.bind(conn, conn)();
+        return conn;
     });
   }
 
