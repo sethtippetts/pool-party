@@ -1,36 +1,111 @@
+
 # Pool Party
 
 <img src="http://www.meridianumc.com/wp-content/uploads/2014/06/pool-party.jpg" height="400" />
 
-### Install Package
+[![NPM version][npm-image]][npm-url]
+[![Downloads][downloads-image]][downloads-url]
+
+## Installation
 ```sh
 $ npm install --save pool-party
 ```
 
-### Create Instance
+## Features
+
+  * Connection pooling
+  * Queued requests
+  * ES5/6 support (written in ES6, transpiled with Babel)
+  * Connection timeout
+  * Custom connection validation method
+  * Decorate existing connection instance with poolable requests
+  * High-water mark to drain connections under low load
+
+## Dive In!
 
 ```
 var PoolParty = require('pool-party');
 
 var db = new PoolParty({
-  // Configuration
+  // Options
 });
 ```
 
-#### Configuration
-Property | Type | Description | Default
---- | --- | --- | ---
-`factory` | `function` | Function to create new connections. *Must* return a connection wrapped in a {Promise} | `N/A`
-`destroy` | `function` | Function to terminate connections *Must* return a `true/false` wrapped in a {Promise} | `N/A`
-`min` | `number` | Minimum number of connections to keep open | `0`
-`max` | `number` | Maximum number of connection to have open | `8
-`timeout` | `milliseconds` | Maximum life of a connection before termination | `1000 * 60 * 60`
-`validate` | `function` | Function to determine if a connection is still valid | `function(){return true;}`
-`decorate` | `array` | Array of `string` method names on the {Connection} class to be "decorated". A decorated method must return a promise. | `[]`
+### Options
 
-### Dive in!
+<hr>
 
+#### `factory`
 
+**type** `function` (__Required__)
+
+Function to create new connections. *Must* return a connection wrapped in a {Promise}
+
+<hr>
+
+#### `destroy`
+
+**type** `function` (__Required__)
+
+Function to terminate connections *Must* return a `true/false` wrapped in a {Promise}
+
+<hr>
+
+#### `min`
+
+**type** `number`
+
+**default** `0`
+
+Minimum number of connections to keep open
+
+<hr>
+
+#### `max`
+
+**type** `number`
+
+**default** `8`
+
+Maximum number of connection to have open
+
+<hr>
+
+#### `timeout`
+
+**type** `milliseconds`
+
+**default** `1000 * 60 * 60`
+
+Maximum life of a connection before termination
+
+<hr>
+
+#### `validate`
+
+**type** `function`
+
+**default** ```function(){
+  return true;
+}```
+
+Function to determine if a connection is still valid
+
+<hr>
+
+#### `decorate`
+
+**type** `array`
+
+**default** `[]`
+
+Array of `string` method names on the {Connection} class to be "decorated". A decorated method must return a promise.
+
+<hr>
+
+## Dive in!
+
+<a href="https://github.com/SethTippetts/pool-party/tree/master/examples">Click here</a> to view more examples.
 
 ```
 var PoolParty = require('pool-party');
@@ -91,3 +166,8 @@ Be sure not to create multiple PoolParty instances, each instance manages the co
 
 
 > Ah, man. SalesForce peed in the pool...
+
+[npm-image]: https://img.shields.io/npm/v/pool-party.svg
+[npm-url]: https://www.npmjs.org/package/pool-party
+[downloads-image]: https://img.shields.io/npm/dm/pool-party.svg
+[downloads-url]: https://www.npmjs.org/package/pool-party

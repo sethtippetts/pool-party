@@ -16,7 +16,7 @@ var PoolParty = require('../es5')
       }
     });
   },
-  destroy: function(conn){
+  destroy: function(){
     return Promise.resolve(true);
   },
   decorate: ['query'],
@@ -35,14 +35,13 @@ describe('Pool Party', function(){
     });
     it('should have a connect function', function(){
       expect(poolParty.connect).to.be.a('function');
+    });
+    it('should resolve with a connection', function(done){
       poolParty.connect(function(conn){
         expect(conn).to.be.a('object');
         expect(conn.query).to.be.a('function');
         expect(poolParty.connections.size).to.equal(1);
-        return conn.query('hey')
-          .then(function(results){
-            expect(results.query).to.equal('hey');
-          });
+        done();
       });
     });
   });

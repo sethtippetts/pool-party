@@ -1,6 +1,6 @@
 {
   "name": "pool-party",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Generic utility for the cool kids to handle pooled resources.",
   "main": "es5/index.js",
   "keywords": [
@@ -28,6 +28,7 @@
   "devDependencies": {
     "chai": "^2.3.0",
     "gulp": "^3.8.11",
+    "gulp-babel": "^5.1.0",
     "gulp-mocha": "^2.0.1"
   }
 }

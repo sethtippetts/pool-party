@@ -1,7 +1,8 @@
-var gulp = require('gulp'),
-  mocha = require('gulp-mocha');
+var gulp = require('gulp')
+  , mocha = require('gulp-mocha')
+  , babel = require('gulp-babel');
 
-gulp.task('default', ['test']);
+gulp.task('default', ['test'], build);
 
 gulp.task('test', function() {
   gulp.src('test/*.js', {
@@ -11,3 +12,9 @@ gulp.task('test', function() {
       reporter: 'dot'
     }));
 });
+
+function build(){
+  gulp.src('es6/**.js')
+    .pipe(babel())
+    .pipe(gulp.dest('es5'));
+}
