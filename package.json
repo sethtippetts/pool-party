@@ -2,7 +2,7 @@
   "name": "pool-party",
   "version": "0.2.7",
   "description": "Generic utility for the cool kids to handle pooled resources.",
-  "main": "index.js",
+  "main": "es5/index.js",
   "keywords": [
     "connection",
     "pool",
