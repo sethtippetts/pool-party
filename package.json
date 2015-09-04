@@ -16,7 +16,7 @@
     "url": "https://github.com/SethTippetts/pool-party.git"
   },
   "scripts": {
-    "test": "npm test"
+    "test": "gulp test"
   },
   "author": "Seth Tippetts <sethtippetts@gmail.com> (http://sethtippetts.com)",
   "license": "ISC",

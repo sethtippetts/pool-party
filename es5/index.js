@@ -15,12 +15,14 @@ module.exports = (function () {
   function PoolParty() {
     var _this = this;
 
-    var _ref = arguments[0] === undefined ? {} : arguments[0];
+    var _ref = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
 
     var _ref$min = _ref.min;
     var min = _ref$min === undefined ? 1 : _ref$min;
     var _ref$max = _ref.max;
     var max = _ref$max === undefined ? 8 : _ref$max;
+    var _ref$highWater = _ref.highWater;
+    var highWater = _ref$highWater === undefined ? 0.75 : _ref$highWater;
     var _ref$timeout = _ref.timeout;
     var timeout = _ref$timeout === undefined ? 1000 * 60 * 60 : _ref$timeout;
     var _ref$validate = _ref.validate;
@@ -36,9 +38,13 @@ module.exports = (function () {
 
     _classCallCheck(this, PoolParty);
 
+    if (highWater > 1) highWater = 1;
+    if (highWater < min / max) highWater = min / max;
+
     this.config = {
       min: min,
       max: max,
+      highWater: highWater,
       timeout: timeout,
       validate: validate,
       decorate: decorate,
@@ -98,21 +104,21 @@ module.exports = (function () {
         return conn;
       });
     }
-  }, {
-    key: 'acquire',
 
     /**
      * PoolParty.acquire
      * @return {Disposer} [description]
      */
+  }, {
+    key: 'acquire',
     value: function acquire() {
 
       // No available connections
       if (!this.pool.length) {
         // Creating new connection
-        if (this.connections.size < this.config.max) {
-          return this.create();
-        } // Maxed out connections, adding to queue
+        if (this.connections.size < this.config.max) return this.create();
+
+        // Maxed out connections, adding to queue
         return this.enqueue();
       }
 
@@ -129,7 +135,9 @@ module.exports = (function () {
     }
   }, {
     key: 'drain',
-    value: function drain() {}
+    value: function drain() {
+      // TODO, drain all connections
+    }
   }, {
     key: 'create',
     value: function create() {
@@ -172,10 +180,10 @@ module.exports = (function () {
       var _this6 = this;
 
       // Resolve waiting promise with last connection
-      if (this.queue.length) {
-        return this.queue.shift().resolve(conn);
-      } // Check if less that 75% of connections in use
-      if (this.connections.size + 1 - this.pool.length > this.highWater * 0.75) {
+      if (this.queue.length) return this.queue.shift().resolve(conn);
+
+      // Check if highWater is higher than config says to keep
+      if (this.connections.size - this.pool.length > this.highWater * this.config.highWater) {
         debug('Draining connection.');
         return conn.then(function (_conn) {
           return _this6.destroy(_conn);
@@ -210,5 +218,3 @@ module.exports = (function () {
 
   return PoolParty;
 })();
-
-// TODO, drain all connections

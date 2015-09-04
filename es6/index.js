@@ -8,21 +8,26 @@ module.exports = class PoolParty {
   constructor({
       min       = 1,
       max       = 8,
+      highWater = 0.75,
       timeout   = 1000 * 60 * 60,
       validate  = () => true,
       decorate  = [],
       factory   = null,
-      destroy   = null
+      destroy   = null,
     } = {}) {
+
+    if (highWater > 1) highWater = 1;
+    if (highWater < min / max) highWater = min / max;
 
     this.config = {
       min,
       max,
+      highWater,
       timeout,
       validate,
       decorate,
       destroy,
-      factory
+      factory,
     };
 
     if(typeof this.config.factory !== 'function'){
@@ -140,8 +145,8 @@ module.exports = class PoolParty {
     // Resolve waiting promise with last connection
     if(this.queue.length) return this.queue.shift().resolve(conn);
 
-    // Check if less that 75% of connections in use
-    if(this.connections.size + 1 - this.pool.length > this.highWater * 0.75) {
+    // Check if highWater is higher than config says to keep
+    if(this.connections.size - this.pool.length > this.highWater * this.config.highWater) {
       debug('Draining connection.');
       return conn.then((_conn) => this.destroy(_conn));
     }
