@@ -1,6 +1,6 @@
 {
   "name": "pool-party",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Generic utility for the cool kids to handle pooled resources.",
   "main": "es5/index.js",
   "keywords": [
