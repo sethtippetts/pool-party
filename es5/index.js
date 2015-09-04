@@ -1,13 +1,15 @@
 'use strict';
 
-var _classCallCheck = function (instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } };
+var _createClass = require('babel-runtime/helpers/create-class')['default'];
 
-var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
+var _classCallCheck = require('babel-runtime/helpers/class-call-check')['default'];
+
+var _Set = require('babel-runtime/core-js/set')['default'];
 
 var Promise = require('bluebird'),
     debug = require('debug')('pool-party');
 
-require('babel/polyfill');
+require("babel").transform("code", { optional: ["runtime"] });
 
 module.exports = (function () {
   function PoolParty() {
@@ -58,7 +60,7 @@ module.exports = (function () {
     this.highWater = 0;
 
     // List of promised connections
-    this.connections = new Set();
+    this.connections = new _Set();
 
     // List of inactive promised connections
     this.pool = [];
